@@ -73,12 +73,17 @@ export async function generateStaticParams() {
     });
     const json = await res.json();
     
+    if (!json.data?.posts?.nodes) {
+        console.warn("[NextWP] No posts found during static generation.");
+        return [];
+    }
+
     // Return array of objects: [{ slug: 'post-1' }, { slug: 'post-2' }]
     return json.data.posts.nodes.map((post: { slug: string }) => ({
       slug: post.slug,
     }));
   } catch (error) {
-    console.error('Error fetching slugs for SSG:', error);
+    console.error('[NextWP] Error fetching slugs for SSG:', error);
     return [];
   }
 }
@@ -87,6 +92,8 @@ export async function generateStaticParams() {
  * HELPER: Fetch Single Post Data
  */
 async function getPost(slug: string): Promise<Post | null> {
+  console.log(`[NextWP] Fetching post for slug: "${slug}"...`);
+
   try {
     const res = await fetch(WORDPRESS_GRAPHQL_ENDPOINT, {
       method: 'POST',
@@ -99,12 +106,21 @@ async function getPost(slug: string): Promise<Post | null> {
     });
 
     const json = await res.json();
-    if (json.errors || !json.data.post) {
-      return null;
+    
+    if (json.errors) {
+        console.error(`[NextWP] GraphQL Error for slug "${slug}":`, json.errors);
+        return null;
     }
+    
+    if (!json.data?.post) {
+        console.error(`[NextWP] No post found for slug "${slug}"`);
+        return null;
+    }
+
+    console.log(`[NextWP] Successfully fetched "${slug}"`);
     return json.data.post;
   } catch (error) {
-    console.error('Error fetching post:', error);
+    console.error(`[NextWP] Network error fetching slug "${slug}":`, error);
     return null;
   }
 }
@@ -122,7 +138,6 @@ const formatDate = (dateString: string) => {
 
 /**
  * COMPONENT: Navigation 
- * (Ideally move this to src/app/layout.tsx to avoid duplication)
  */
 const Navbar = () => (
   <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
@@ -144,7 +159,6 @@ const Navbar = () => (
 
 /**
  * COMPONENT: Footer
- * (Ideally move this to src/app/layout.tsx to avoid duplication)
  */
 const Footer = () => (
   <footer className="bg-white border-t border-gray-200 mt-20 py-12">
@@ -156,9 +170,14 @@ const Footer = () => (
 
 /**
  * MAIN PAGE COMPONENT
+ * Updated for Next.js 15: params is now a Promise
  */
-export default async function BlogPost({ params }: { params: { slug: string } }) {
-  const post = await getPost(params.slug);
+export default async function BlogPost(props: { params: Promise<{ slug: string }> }) {
+  // Await the params object (Required in Next.js 15)
+  const params = await props.params;
+  const { slug } = params;
+
+  const post = await getPost(slug);
 
   if (!post) {
     notFound(); // Returns the 404 page
@@ -238,7 +257,6 @@ export default async function BlogPost({ params }: { params: { slug: string } })
             </div>
 
             {/* Post Content */}
-            {/* Note: 'prose' comes from @tailwindcss/typography plugin */}
             <div 
               className="prose prose-lg prose-slate max-w-none 
                 prose-headings:font-bold prose-headings:text-slate-900 
