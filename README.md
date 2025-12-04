@@ -2,6 +2,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 U*pdating readme
 
+More updates
+
 ## Getting Started
 
 First, run the development server:
